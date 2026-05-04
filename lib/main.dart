@@ -20,6 +20,7 @@ class PokemonApp extends StatelessWidget {
   }
 }
 
+// ==================== SPLASH SCREEN ====================
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
   @override
@@ -28,10 +29,12 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
+  late Animation<double> _fade;
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 2));
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
     _ctrl.forward();
     Future.delayed(const Duration(seconds: 2), () {
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PokemonListPage()));
@@ -47,7 +50,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       ),
       child: Center(
         child: FadeTransition(
-          opacity: _ctrl,
+          opacity: _fade,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -64,6 +67,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 }
 
+// ==================== MODEL POKEMON (sama) ====================
 class Pokemon {
   final int id;
   final String name;
@@ -104,21 +108,41 @@ List<Pokemon> _generate() => [
   Pokemon(id:248,name:'Tyranitar',types:['Rock','Dark'],stats:{'HP':100,'Atk':134,'Def':110,'Sp.Atk':95,'Sp.Def':100,'Speed':61},ability:'Sand Stream',weaknesses:['Fighting (x4)','Ground','Bug','Steel','Water','Grass','Fairy'],evolution:'Final',description:'Tank + attacker kuat, summon sandstorm.',role:'Tank / Sweeper',partners:['Excadrill','Garchomp','Rotom-Wash'],imageAsset:'assets/images/tyranitar.png'),
 ];
 
-// ================= LIST PAGE =================
+// ==================== LIST PAGE DENGAN ASPECT RATIO LEBIH PENDEK ====================
 class PokemonListPage extends StatefulWidget {
   const PokemonListPage({super.key});
   @override
   State<PokemonListPage> createState() => _PokemonListPageState();
 }
 
-class _PokemonListPageState extends State<PokemonListPage> {
+class _PokemonListPageState extends State<PokemonListPage> with SingleTickerProviderStateMixin {
   String _search = '';
   String _typeFilter = 'All';
+  late AnimationController _staggerController;
+  
   List<String> get _types => ['All', ...Pokemon.all.expand((p) => p.types).toSet().toList()];
   List<Pokemon> get _filtered => Pokemon.all.where((p) => p.name.toLowerCase().contains(_search.toLowerCase()) && (_typeFilter == 'All' || p.types.contains(_typeFilter))).toList();
 
   @override
+  void initState() {
+    super.initState();
+    _staggerController = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
+    _staggerController.forward();
+  }
+
+  @override
+  void dispose() {
+    _staggerController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final crossAxisCount = screenWidth > 600 ? 4 : 2;
+    // Perbesar childAspectRatio agar card lebih pendek (tidak terlalu tinggi)
+    final childAspectRatio = screenWidth > 600 ? 0.85 : 0.9;
+
     return Container(
       decoration: const BoxDecoration(
         gradient: RadialGradient(colors: [Color(0xFF1a1a2e), Color(0xFF0a0a1a)], center: Alignment.topLeft, radius: 1.5),
@@ -183,9 +207,31 @@ class _PokemonListPageState extends State<PokemonListPage> {
                 ? const Center(child: Text('Tidak ditemukan', style: TextStyle(color: Colors.white70)))
                 : GridView.builder(
                     padding: const EdgeInsets.all(16),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 0.7, crossAxisSpacing: 16, mainAxisSpacing: 16),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      childAspectRatio: childAspectRatio,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                    ),
                     itemCount: _filtered.length,
-                    itemBuilder: (_, i) => _PokemonCard(pokemon: _filtered[i]),
+                    itemBuilder: (_, index) {
+                      final delay = (index * 0.03).clamp(0.0, 0.4);
+                      return FadeTransition(
+                        opacity: CurvedAnimation(
+                          parent: _staggerController,
+                          curve: Interval(delay, 1.0, curve: Curves.easeOut),
+                        ),
+                        child: SlideTransition(
+                          position: Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero).animate(
+                            CurvedAnimation(
+                              parent: _staggerController,
+                              curve: Interval(delay, 1.0, curve: Curves.easeOut),
+                            ),
+                          ),
+                          child: _PokemonCard(pokemon: _filtered[index]),
+                        ),
+                      );
+                    },
                   ),
             ),
           ],
@@ -195,9 +241,56 @@ class _PokemonListPageState extends State<PokemonListPage> {
   }
 }
 
-class _PokemonCard extends StatelessWidget {
+// ==================== CARD DENGAN UKURAN LEBIH PENDEK, GAMBAR KECIL ====================
+class _PokemonCard extends StatefulWidget {
   final Pokemon pokemon;
   const _PokemonCard({required this.pokemon});
+
+  @override
+  State<_PokemonCard> createState() => _PokemonCardState();
+}
+
+class _PokemonCardState extends State<_PokemonCard> with SingleTickerProviderStateMixin {
+  double _scale = 1.0;
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 120));
+  }
+
+  void _onTapDown(TapDownDetails details) {
+    _controller.forward();
+    setState(() => _scale = 0.96);
+  }
+
+  void _onTapUp(TapUpDetails details) {
+    _controller.reverse();
+    setState(() => _scale = 1.0);
+    Navigator.push(context, PageRouteBuilder(
+      pageBuilder: (_, __, ___) => PokemonDetailPage(pokemon: widget.pokemon),
+      transitionDuration: const Duration(milliseconds: 300),
+      transitionsBuilder: (_, animation, __, child) {
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(scale: Tween<double>(begin: 0.92, end: 1.0).animate(animation), child: child),
+        );
+      },
+    ));
+  }
+
+  void _onTapCancel() {
+    _controller.reverse();
+    setState(() => _scale = 1.0);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   Color _typeColor(String t) {
     switch(t.toLowerCase()) {
       case 'grass': return Colors.green; case 'poison': return Colors.purple; case 'fire': return Colors.orange;
@@ -208,47 +301,78 @@ class _PokemonCard extends StatelessWidget {
       default: return Colors.grey;
     }
   }
+
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Tinggi gambar lebih kecil (75-85px) agar card pendek
+    final imageHeight = screenWidth > 600 ? 85.0 : 90.0;
+
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PokemonDetailPage(pokemon: pokemon))),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [Colors.white.withOpacity(0.15), Colors.white.withOpacity(0.05)]),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white.withOpacity(0.2)),
-          boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 12, offset: const Offset(0,6))],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: BackdropFilter(
-            filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-            child: Column(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: Container(
-                    margin: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
-                    child: Image.asset(pokemon.imageAsset, fit: BoxFit.contain),
+      onTapDown: _onTapDown,
+      onTapUp: _onTapUp,
+      onTapCancel: _onTapCancel,
+      child: Transform.scale(
+        scale: _scale,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [Colors.white.withOpacity(0.15), Colors.white.withOpacity(0.05)]),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.2)),
+            boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6, offset: const Offset(0,3))],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Gambar dengan tinggi tetap lebih kecil
+                  Container(
+                    height: imageHeight,
+                    margin: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        widget.pokemon.imageAsset,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 28, color: Colors.white54),
+                      ),
+                    ),
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(pokemon.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                      const SizedBox(height: 4),
-                      Wrap( spacing: 4, children: pokemon.types.map((t) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(color: _typeColor(t).withOpacity(0.7), borderRadius: BorderRadius.circular(12)),
-                        child: Text(t, style: const TextStyle(fontSize: 10, color: Colors.white)),
-                      )).toList()),
-                    ],
+                  // Nama dan tipe dengan padding minimal
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.pokemon.name,
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Wrap(
+                          spacing: 3,
+                          runSpacing: 2,
+                          children: widget.pokemon.types.map((t) => Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(color: _typeColor(t).withOpacity(0.7), borderRadius: BorderRadius.circular(6)),
+                            child: Text(t, style: const TextStyle(fontSize: 8, color: Colors.white)),
+                          )).toList(),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -257,10 +381,11 @@ class _PokemonCard extends StatelessWidget {
   }
 }
 
-// ================= DETAIL PAGE =================
+// ==================== DETAIL PAGE (sama seperti sebelumnya) ====================
 class PokemonDetailPage extends StatelessWidget {
   final Pokemon pokemon;
   const PokemonDetailPage({super.key, required this.pokemon});
+
   Color _typeColor(String t) {
     switch(t.toLowerCase()) {
       case 'grass': return Colors.green; case 'poison': return Colors.purple; case 'fire': return Colors.orange;
@@ -272,6 +397,7 @@ class PokemonDetailPage extends StatelessWidget {
     }
   }
   Color _statColor(String s) => s.contains('HP') ? Colors.green : (s.contains('Atk') ? Colors.red : (s.contains('Def') ? Colors.blue : Colors.purple));
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -279,7 +405,7 @@ class PokemonDetailPage extends StatelessWidget {
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 280,
+            expandedHeight: 260,
             pinned: true,
             backgroundColor: Colors.transparent,
             flexibleSpace: FlexibleSpaceBar(
@@ -292,7 +418,25 @@ class PokemonDetailPage extends StatelessWidget {
                   ),
                 ),
                 child: Center(
-                  child: Hero(tag: pokemon.id, child: Image.asset(pokemon.imageAsset, height: 180, fit: BoxFit.contain)),
+                  child: Hero(
+                    tag: pokemon.id,
+                    child: Container(
+                      width: 160,
+                      height: 160,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(80),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(80),
+                        child: Image.asset(
+                          pokemon.imageAsset,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 70, color: Colors.white54),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
               title: Text(pokemon.name, style: const TextStyle(fontWeight: FontWeight.bold, shadows: [Shadow(blurRadius: 10, color: Colors.black)])),
@@ -300,20 +444,20 @@ class PokemonDetailPage extends StatelessWidget {
           ),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Wrap(spacing: 12, children: pokemon.types.map((t) => Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  Wrap(spacing: 10, children: pokemon.types.map((t) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(colors: [_typeColor(t), _typeColor(t).withOpacity(0.7)]),
-                      borderRadius: BorderRadius.circular(30),
-                      boxShadow: [BoxShadow(color: _typeColor(t).withOpacity(0.4), blurRadius: 8)],
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [BoxShadow(color: _typeColor(t).withOpacity(0.4), blurRadius: 6)],
                     ),
-                    child: Text(t, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    child: Text(t, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                   )).toList()),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   _buildSection('Deskripsi', pokemon.description),
                   _buildSection('Role', pokemon.role),
                   _buildStats(),
@@ -329,36 +473,38 @@ class PokemonDetailPage extends StatelessWidget {
       ),
     );
   }
+
   Widget _buildSection(String title, String content) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 12),
+    padding: const EdgeInsets.symmetric(vertical: 8),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
-      const SizedBox(height: 8),
+      Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+      const SizedBox(height: 4),
       Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white.withOpacity(0.1))),
-        child: Text(content, style: const TextStyle(fontSize: 16, color: Colors.white70)),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.1))),
+        child: Text(content, style: const TextStyle(fontSize: 14, color: Colors.white70)),
       ),
     ]),
   );
+
   Widget _buildStats() => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 12),
+    padding: const EdgeInsets.symmetric(vertical: 8),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Base Stats', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
-      const SizedBox(height: 8),
+      const Text('Base Stats', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+      const SizedBox(height: 4),
       Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(20)),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(14)),
         child: Column(children: pokemon.stats.entries.map((e) {
           double percent = (e.value / 255).clamp(0.0, 1.0);
-          return Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Row(children: [
-            SizedBox(width: 70, child: Text(e.key, style: const TextStyle(color: Colors.white70))),
+          return Padding(padding: const EdgeInsets.symmetric(vertical: 3), child: Row(children: [
+            SizedBox(width: 60, child: Text(e.key, style: const TextStyle(fontSize: 12, color: Colors.white70))),
             Expanded(child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: LinearProgressIndicator(value: percent, backgroundColor: Colors.white24, color: _statColor(e.key), minHeight: 10),
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(value: percent, backgroundColor: Colors.white24, color: _statColor(e.key), minHeight: 6),
             )),
-            const SizedBox(width: 10),
-            Text(e.value.toString(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            const SizedBox(width: 6),
+            Text(e.value.toString(), style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold)),
           ]));
         }).toList()),
       ),
