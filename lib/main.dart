@@ -67,7 +67,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 }
 
-// ==================== MODEL POKEMON (sama) ====================
+// ==================== MODEL POKEMON ====================
 class Pokemon {
   final int id;
   final String name;
@@ -108,7 +108,7 @@ List<Pokemon> _generate() => [
   Pokemon(id:248,name:'Tyranitar',types:['Rock','Dark'],stats:{'HP':100,'Atk':134,'Def':110,'Sp.Atk':95,'Sp.Def':100,'Speed':61},ability:'Sand Stream',weaknesses:['Fighting (x4)','Ground','Bug','Steel','Water','Grass','Fairy'],evolution:'Final',description:'Tank + attacker kuat, summon sandstorm.',role:'Tank / Sweeper',partners:['Excadrill','Garchomp','Rotom-Wash'],imageAsset:'assets/images/tyranitar.png'),
 ];
 
-// ==================== LIST PAGE DENGAN ASPECT RATIO LEBIH PENDEK ====================
+// ==================== LIST PAGE RESPONSIVE (4 KOLOM/2 KOLOM) ====================
 class PokemonListPage extends StatefulWidget {
   const PokemonListPage({super.key});
   @override
@@ -140,8 +140,7 @@ class _PokemonListPageState extends State<PokemonListPage> with SingleTickerProv
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final crossAxisCount = screenWidth > 600 ? 4 : 2;
-    // Perbesar childAspectRatio agar card lebih pendek (tidak terlalu tinggi)
-    final childAspectRatio = screenWidth > 600 ? 0.85 : 0.9;
+    final childAspectRatio = screenWidth > 600 ? 0.8 : 0.85; // disesuaikan agar card tidak terlalu panjang
 
     return Container(
       decoration: const BoxDecoration(
@@ -241,7 +240,7 @@ class _PokemonListPageState extends State<PokemonListPage> with SingleTickerProv
   }
 }
 
-// ==================== CARD DENGAN UKURAN LEBIH PENDEK, GAMBAR KECIL ====================
+// ==================== CARD DENGAN GAMBAR LEBIH BESAR ====================
 class _PokemonCard extends StatefulWidget {
   final Pokemon pokemon;
   const _PokemonCard({required this.pokemon});
@@ -305,8 +304,8 @@ class _PokemonCardState extends State<_PokemonCard> with SingleTickerProviderSta
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    // Tinggi gambar lebih kecil (75-85px) agar card pendek
-    final imageHeight = screenWidth > 600 ? 85.0 : 90.0;
+    // GAMBAR LEBIH BESAR: 110px untuk desktop, 115px untuk mobile
+    final imageHeight = screenWidth > 600 ? 110.0 : 115.0;
 
     return GestureDetector(
       onTapDown: _onTapDown,
@@ -328,7 +327,6 @@ class _PokemonCardState extends State<_PokemonCard> with SingleTickerProviderSta
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Gambar dengan tinggi tetap lebih kecil
                   Container(
                     height: imageHeight,
                     margin: const EdgeInsets.all(6),
@@ -342,11 +340,10 @@ class _PokemonCardState extends State<_PokemonCard> with SingleTickerProviderSta
                         widget.pokemon.imageAsset,
                         fit: BoxFit.cover,
                         width: double.infinity,
-                        errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 28, color: Colors.white54),
+                        errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 32, color: Colors.white54),
                       ),
                     ),
                   ),
-                  // Nama dan tipe dengan padding minimal
                   Padding(
                     padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
                     child: Column(
@@ -354,18 +351,17 @@ class _PokemonCardState extends State<_PokemonCard> with SingleTickerProviderSta
                       children: [
                         Text(
                           widget.pokemon.name,
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 2),
                         Wrap(
                           spacing: 3,
-                          runSpacing: 2,
                           children: widget.pokemon.types.map((t) => Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                             decoration: BoxDecoration(color: _typeColor(t).withOpacity(0.7), borderRadius: BorderRadius.circular(6)),
-                            child: Text(t, style: const TextStyle(fontSize: 8, color: Colors.white)),
+                            child: Text(t, style: const TextStyle(fontSize: 9, color: Colors.white)),
                           )).toList(),
                         ),
                       ],
@@ -381,7 +377,7 @@ class _PokemonCardState extends State<_PokemonCard> with SingleTickerProviderSta
   }
 }
 
-// ==================== DETAIL PAGE (sama seperti sebelumnya) ====================
+// ==================== DETAIL PAGE ====================
 class PokemonDetailPage extends StatelessWidget {
   final Pokemon pokemon;
   const PokemonDetailPage({super.key, required this.pokemon});
